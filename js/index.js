@@ -40,7 +40,9 @@ let rendering_uniforms = {
     Ip_diffuse_color: {type: 'vec3', value: new THREE.Color(0.7, 0.7, 0.7)},
     k_a: {type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85)},
     k_d: {type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85)},
-    k_s: {type: 'vec3', value: new THREE.Color(1, 1, 1)}
+    k_s: {type: 'vec3', value: new THREE.Color(1, 1, 1)},
+    expoent: {type: 'float', value: 4.0},
+
 }
 
 //----------------------------------------------------------------------------
@@ -63,6 +65,8 @@ material.vertexShader = `
     uniform vec3 Ip_position;
     uniform vec3 Ip_ambient_color;
     uniform vec3 Ip_diffuse_color;
+
+    uniform float expoent;
 
     // 'uniforms' contendo informações sobre as reflectâncias do objeto.
     
@@ -118,8 +122,17 @@ material.vertexShader = `
         // 'I' : cor final (i.e. intensidade) do vértice.
         //     Neste caso, a cor retornada é vermelho. Para a realização do exercício, o aluno deverá atribuir a 'I' o valor
         //     final gerado pelo modelo local de iluminação implementado.
-        
-        I = vec4(1, 0, 0, 1);
+
+        // termo ambiente
+        I = vec4(Ip_ambient_color, 1.0) * vec4(k_a, 1.0);
+
+        // termo difuso
+        float diffuse = max(0.0, dot(L_cam_spc, normalize(N_cam_spc)));
+        I += vec4(Ip_diffuse_color, 1.0) * vec4(k_d, 1.0) * diffuse;
+
+        // termo especular
+        float specular = pow(max(0.0, dot(normalize(R_cam_spc), normalize(position))), expoent);
+        I += vec4(Ip_diffuse_color, 1.0) * vec4(k_s, 1.0) * specular;
 
         // 'gl_Position' : variável de sistema que conterá a posição final do vértice transformado pelo Vertex Shader.
         
