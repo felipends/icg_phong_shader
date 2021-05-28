@@ -35,13 +35,13 @@ let geometry = new THREE.TorusGeometry(10, 3, 16, 25);
 // * 'k_s' : coeficiente de reflectância especular do objeto.
 //----------------------------------------------------------------------------
 let rendering_uniforms = {
-    Ip_position: {type: 'vec3', value: new THREE.Vector3(-20, 10, 10)},
-    Ip_ambient_color: {type: 'vec3', value: new THREE.Color(0.3, 0.3, 0.3)},
-    Ip_diffuse_color: {type: 'vec3', value: new THREE.Color(0.7, 0.7, 0.7)},
-    k_a: {type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85)},
-    k_d: {type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85)},
-    k_s: {type: 'vec3', value: new THREE.Color(1, 1, 1)},
-    expoent: {type: 'float', value: 4.0},
+    Ip_position: { type: 'vec3', value: new THREE.Vector3(-20, 10, 10) },
+    Ip_ambient_color: { type: 'vec3', value: new THREE.Color(0.3, 0.3, 0.3) },
+    Ip_diffuse_color: { type: 'vec3', value: new THREE.Color(0.7, 0.7, 0.7) },
+    k_a: { type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85) },
+    k_d: { type: 'vec3', value: new THREE.Color(0.25, 0.25, 0.85) },
+    k_s: { type: 'vec3', value: new THREE.Color(1, 1, 1) },
+    expoent: { type: 'float', value: 16.0 },
 
 }
 
@@ -52,111 +52,32 @@ let rendering_uniforms = {
 //----------------------------------------------------------------------------
 let material = new THREE.ShaderMaterial({
     uniforms: rendering_uniforms,
-    vertexShader:'',
+    vertexShader: '',
     fragmentShader: ''
 });
+
+const shaders = {
+    'gouraud': {
+        vertex: gouraudVertexShader,
+        fragment: gouraudFragmentShader
+    },
+    'phong': {
+        vertex: phongVertexShader,
+        fragment: phongFragmentShader
+    },
+}
+
+let selectedShader = shaders['phong'];
 
 //----------------------------------------------------------------------------
 // Vertex Shader
 //----------------------------------------------------------------------------
-material.vertexShader = `
-    // 'uniforms' contendo informações sobre a fonte de luz pontual.
-    
-    uniform vec3 Ip_position;
-    uniform vec3 Ip_ambient_color;
-    uniform vec3 Ip_diffuse_color;
-
-    uniform float expoent;
-
-    // 'uniforms' contendo informações sobre as reflectâncias do objeto.
-    
-    uniform vec3 k_a;
-    uniform vec3 k_d;
-    uniform vec3 k_s;
-
-    // 'I' : Variável que armazenará a cor final (i.e. intensidade) do vértice, após a avaliação do modelo local de iluminação.
-    //     A variável 'I' é do tipo 'varying', ou seja, seu valor será calculado pelo Vertex Shader (por vértice)
-    //     e será interpolado durante a rasterização das primitivas, ficando disponível para cada fragmento gerado pela rasterização.
-    
-    varying vec4 I;
-
-    // Programa principal do Vertex Shader.
-
-    void main() {
-    
-        // 'modelViewMatrix' : variável de sistema que contém a matriz ModelView (4x4).
-        // 'Ip_pos_cam_spc' : variável que armazenará a posição da fonte de luz no Espaço da Câmera.
-        
-        vec4 Ip_pos_cam_spc = modelViewMatrix * vec4(Ip_position, 1.0);
-
-        // 'position' : variável de sistema que contém a posição do vértice (vec3) no espaço do objeto.
-        // 'P_cam_spc' : variável que contém o vértice (i.e. 'position') transformado para o Espaço de Câmera.
-        //     Observe que 'position' é um vetor 3D que precisou ser levado para o espaço homogêneo 4D 
-        //     (i.e., acrescentando-se uma coordenada adicional w = 1.0) para poder ser multiplicado pela
-        //     matriz 'modelViewMatrix' (que é 4x4).
-        
-        vec4 P_cam_spc = modelViewMatrix * vec4(position, 1.0);
-
-        // 'normal' : variável de sistema que contém o vetor normal do vértice (vec3) no espaço do objeto.
-        // 'normalMatrix' : variável de sistema que contém a matriz de normais (3x3) gerada a partir da matriz 'modelViewMatrix'.
-        
-        vec3 N_cam_spc = normalize(normalMatrix * normal);
-
-        // 'normalize()' : função do sistema que retorna o vetor de entrada normalizado (i.e. com comprimento = 1).
-        // 'L_cam_spc' : variável que contém o vetor unitário, no Espaço de Câmera, referente à fonte de luz.
-        
-        vec3 L_cam_spc = normalize(Ip_pos_cam_spc.xyz - P_cam_spc.xyz);
-
-        // 'reflect()' : função do sistema que retorna 'R_cam_spc', isto é, o vetor 'L_cam_spc' refletido 
-        //     em relação o vetor 'N_cam_spc'.
-        
-        vec3 R_cam_spc = reflect(L_cam_spc, N_cam_spc);
-
-        ///////////////////////////////////////////////////////////////////////////////
-        //
-        // Escreva aqui o seu código para implementar os modelos de iluminação com 
-        // Gouraud Shading (interpolação por vértice). 
-        //
-        ///////////////////////////////////////////////////////////////////////////////
-
-        // 'I' : cor final (i.e. intensidade) do vértice.
-        //     Neste caso, a cor retornada é vermelho. Para a realização do exercício, o aluno deverá atribuir a 'I' o valor
-        //     final gerado pelo modelo local de iluminação implementado.
-
-        // termo ambiente
-        I = vec4(Ip_ambient_color, 1.0) * vec4(k_a, 1.0);
-
-        // termo difuso
-        float diffuse = max(0.0, dot(L_cam_spc, normalize(N_cam_spc)));
-        I += vec4(Ip_diffuse_color, 1.0) * vec4(k_d, 1.0) * diffuse;
-
-        // termo especular
-        float specular = pow(max(0.0, dot(normalize(R_cam_spc), normalize(position))), expoent);
-        I += vec4(Ip_diffuse_color, 1.0) * vec4(k_s, 1.0) * specular;
-
-        // 'gl_Position' : variável de sistema que conterá a posição final do vértice transformado pelo Vertex Shader.
-        
-        gl_Position = projectionMatrix * P_cam_spc;
-    }
-    `;
+material.vertexShader = selectedShader.vertex;
 
 //----------------------------------------------------------------------------
 // Fragment Shader
 //----------------------------------------------------------------------------
-material.fragmentShader = `
-    // 'I' : valor de cor originalmente calculada pelo Vertex Shader, e já interpolada para o fragmento corrente.
-    
-    varying vec4 I;
-
-    // Programa principal do Fragment Shader.
-
-    void main() {
-    
-        // 'gl_FragColor' : variável de sistema que conterá a cor final do fragmento calculada pelo Fragment Shader.
-        
-        gl_FragColor = I;
-    }
-    `;
+material.fragmentShader = selectedShader.fragment;
 
 //----------------------------------------------------------------------------
 // 'object_mesh' : De acordo com o Three.js, um 'mesh' é a geometria acrescida do material.
@@ -168,9 +89,27 @@ scene.add(object_mesh);
 // 'render()' : Função que realiza o rendering da cena a cada frame.
 //----------------------------------------------------------------------------
 function render() {
-  requestAnimationFrame(render);
-  renderer.render(scene, camera);
+    requestAnimationFrame(render);
+    renderer.render(scene, camera);
 }
 
 // Chamada da função de rendering.
+
+document.addEventListener('keypress', (event) => {
+    const keyName = event.key;
+    if (keyName === 'p') {
+        selectedShader = selectedShader === shaders['gouraud'] ? shaders['phong'] : shaders['gouraud'];
+        material.vertexShader = selectedShader.vertex;
+        material.fragmentShader = selectedShader.fragment;
+        material.needsUpdate = true;
+
+        if(selectedShader === shaders['gouraud']){
+            alert("Gouraud shader selected");
+        } else {
+            alert("Phong shader selected");
+        }
+    }
+});
+
+
 render();
